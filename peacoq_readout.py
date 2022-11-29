@@ -239,9 +239,9 @@ class CoincidenceExample(QMainWindow):
 
         print("active channel 1: ", self.active_channels[1])
 
-        self.tagger.setConditionalFilter(
-            trigger=[self.active_channels[1]], filtered=[self.active_channels[2]]
-        )
+        # self.tagger.setConditionalFilter(
+        #     trigger=[self.active_channels[1]], filtered=[self.active_channels[2]]
+        # )
 
         self.seconds = 1
         self.histBlock = numpy.zeros(

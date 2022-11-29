@@ -281,8 +281,10 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                         #     hist_2_idx += 1
                         old_tag_1 = tag["time"]
 
-                        # hist_1_tags_data[hist_1_idx] = hist_tag
-                        # hist_1_idx += 1
+                        if abs(tag["time"] - tag_2_buffer) < 2000:
+                            diff = tag["time"] - tag_2_buffer
+                            slope_diffs[slope_diffs_idx] = diff
+                            slope_diffs_idx += 1
 
                     if tag["channel"] == data_channel_2:
                         if tag["time"] - old_tag_2 > empty_time:
@@ -292,7 +294,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                             tag_2_buffer = tag["time"]
                         old_tag_2 = tag["time"]
 
-                        if tag["time"] - tag_1_buffer < 2000:
+                        if abs(tag["time"] - tag_1_buffer) < 2000:
                             diff = tag["time"] - tag_1_buffer
                             slope_diffs[slope_diffs_idx] = diff
                             slope_diffs_idx += 1
