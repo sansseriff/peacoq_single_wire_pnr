@@ -56,3 +56,9 @@ python peacoq_readout.py
 ```
 
 Hit the "Load File Params" button first, then the "Clock Referenced Mode" button to activate the PLL. 
+
+
+
+# Notes
+
+- Lower the count rate if you get an error similar to ```SWIG director method error. In method 'next_impl': ZeroDivisionError```

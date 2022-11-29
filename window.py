@@ -13,7 +13,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 
 class Window(object):
     def setupUi(self, CoincidenceExample):
-        CoincidenceExample.setObjectName("Entanglement Analyser V3.1")
+        CoincidenceExample.setObjectName("Swabian Timetagger Controll")
         CoincidenceExample.resize(859, 811)
         self.centralwidget = QtWidgets.QWidget(CoincidenceExample)
         self.centralwidget.setEnabled(True)

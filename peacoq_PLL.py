@@ -48,6 +48,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         self.clock_idx = 0
         self.hist_1_idx = 0
         self.hist_2_idx = 0
+        self.slope_diffs_idx = 0
         self.coinc_idx = 0
 
         self.error = 0
@@ -88,6 +89,8 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                 pclocks = self.lclock_data[: self.clock_idx].copy()
                 hist_1_tags = self.hist_1_tags_data[: self.hist_1_idx].copy()
                 hist_2_tags = self.hist_2_tags_data[: self.hist_2_idx].copy()
+                slope_diffs = self.slope_diffs[: self.slope_diffs_idx].copy()
+
                 coinc = self.coinc[: self.coinc_idx].copy()
                 self.old_clock_start = self.clock_data[0]
 
@@ -95,10 +98,11 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                 self.clock_idx = 0
                 self.hist_1_idx = 0
                 self.hist_2_idx = 0
+                self.slope_diffs_idx = 0
                 self.coinc_idx = 0
                 ###################
                 self._unlock()
-                return clocks, pclocks, hist_1_tags, hist_2_tags, coinc
+                return clocks, pclocks, hist_1_tags, hist_2_tags, slope_diffs
             else:
                 print("nope")
             self._unlock()
@@ -114,6 +118,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         self.hist_1_tags_data = np.zeros((self.max_bins,), dtype=np.float64)
         self.coinc = np.zeros((self.max_bins,), dtype=np.float64)
         self.hist_2_tags_data = np.zeros((self.max_bins,), dtype=np.float64)
+        self.slope_diffs = np.zeros((self.max_bins,), dtype=np.float64)
 
     def on_start(self):
         # The lock is already acquired within the backend.
@@ -134,6 +139,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         lclock_data_dec,
         hist_1_tags_data,
         hist_2_tags_data,
+        slope_diffs,
         coinc,
         data_channel_1,
         data_channel_2,
@@ -150,6 +156,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         clock_idx,
         hist_1_idx,
         hist_2_idx,
+        slope_diffs_idx,
         coinc_idx,
         q,
     ):
@@ -175,15 +182,17 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         old_tag_1 = 0
         old_tag_2 = 0
         empty_time = 180000
+        tag_1_buffer = 0
+        tag_2_buffer = 0
 
         this = np.ones(5) * 4.9345
         if init:
             print(
                 "Init PLL with clock channel ",
                 clock_channel,
-                " , data1 channel: ",
+                " , data channel 1: ",
                 data_channel_1,
-                " , and data2 channel ",
+                " , and data channel 2: ",
                 data_channel_2,
             )
             clock_idx = 0
@@ -264,6 +273,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                         if tag["time"] - old_tag_1 > empty_time:
                             hist_1_tags_data[hist_1_idx] = hist_tag
                             hist_1_idx += 1
+                            tag_1_buffer = tag["time"]
 
                         # # if you want to see the rejected tags
                         # else:
@@ -279,7 +289,13 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                             hist_2_tags_data[hist_2_idx] = hist_tag
                             hist_2_idx += 1
+                            tag_2_buffer = tag["time"]
                         old_tag_2 = tag["time"]
+
+                        if tag["time"] - tag_1_buffer < 2000:
+                            diff = tag["time"] - tag_1_buffer
+                            slope_diffs[slope_diffs_idx] = diff
+                            slope_diffs_idx += 1
 
                         # hist_2_tags_data[hist_2_idx] = hist_tag
                         # hist_2_idx += 1
@@ -299,6 +315,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             clock_idx,
             hist_1_idx,
             hist_2_idx,
+            slope_diffs_idx,
             coinc_idx,
             error,
             q,
@@ -336,6 +353,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             self.clock_idx,
             self.hist_1_idx,
             self.hist_2_idx,
+            self.slope_diffs_idx,
             self.coinc_idx,
             self.error,
             self.i,
@@ -346,6 +364,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             self.lclock_data_dec,
             self.hist_1_tags_data,
             self.hist_2_tags_data,
+            self.slope_diffs,
             self.coinc,
             self.data_channel_1,
             self.data_channel_2,
@@ -363,6 +382,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             self.clock_idx,
             self.hist_1_idx,
             self.hist_2_idx,
+            self.slope_diffs_idx,
             self.coinc_idx,
             self.i,
         )

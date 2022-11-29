@@ -73,7 +73,6 @@ class CoincidenceExample(QMainWindow):
         self.ui.clockRefMode.clicked.connect(self.clockRefMode)
         self.ui.clearButton.clicked.connect(self.export_file_params)
         self.ui.saveButton.clicked.connect(self.saveHistData)
-        # self.ui.measure_viz.clicked.connect(self.measure_viz)
         self.ui.initScan.clicked.connect(self.triggerJitterScan)
         self.ui.set_intf_voltage.clicked.connect(self.load_file_params)
 
@@ -120,7 +119,7 @@ class CoincidenceExample(QMainWindow):
         self.clockAxis = self.fig.add_subplot(221)
         self.counterAxis = self.fig.add_subplot(222)
         self.correlationAxis = self.fig.add_subplot(223)
-        self.coincAxis = self.fig.add_subplot(224)
+        self.slopeAxis = self.fig.add_subplot(224)
         self.canvas = FigureCanvasQTAgg(self.fig)
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.ui.plotLayout.addWidget(self.toolbar)
@@ -150,23 +149,9 @@ class CoincidenceExample(QMainWindow):
 
         self.save_time = None
         self.trigger_levels = None
-
-        # self.VSource = teledyneT3PS("10.7.0.147", port=1026)
-        # self.VSource.set_max_voltage(5.0)
-        # self.VSource = teledyneT3PS("10.7.0.147", port=1026, max_voltage=2)
-        # self.VSource.connect()
-        # V_init = self.VSource.getVoltage(2)
-        # print("VSource Initialized With Voltage: ", V_init)
-        # self.ui.intf_voltage.setProperty("value", V_init)
-
-        # print("here 1")
         self.load_file_params()
-        # print("here 2")
         self.updateMeasurements()
-        # print("here 3")
         self.draw()
-        # print("here 4")
-        # self.clockRefMode()
 
     def reInit(self):
         # Create the TimeTagger measurements
@@ -252,7 +237,11 @@ class CoincidenceExample(QMainWindow):
         else:
             self.correlationAxis.set_yscale("linear")
 
-        # print(self.ui.IntType.currentText())
+        print("active channel 1: ", self.active_channels[1])
+
+        self.tagger.setConditionalFilter(
+            trigger=[self.active_channels[1]], filtered=[self.active_channels[2]]
+        )
 
         self.seconds = 1
         self.histBlock = numpy.zeros(
@@ -287,10 +276,6 @@ class CoincidenceExample(QMainWindow):
                 binwidth=int(50e9),
                 n_values=200,
             )
-
-        # print("coincidences on ch", self.coincidences.getChannels())
-
-        # Measure the correlation between A and B
 
         if self.ent:
             pass
@@ -333,10 +318,10 @@ class CoincidenceExample(QMainWindow):
 
         self.correlationAxis.clear()
         self.clockAxis.clear()
-        self.coincAxis.clear()
+        self.slopeAxis.clear()
 
         if self.ent:
-            clocks, pclocks, hist1, hist2, coinc = self.PLL.getData()
+            clocks, pclocks, hist1, hist2, slope_diffs = self.PLL.getData()
 
             try:
                 # max = numpy.max(hist1)
@@ -347,7 +332,11 @@ class CoincidenceExample(QMainWindow):
             self.bins = numpy.arange(1, max)
             histogram1, bins = numpy.histogram(hist1, bins=self.bins)
             histogram2, bins = numpy.histogram(hist2, bins=self.bins)
-            histogram_coinc, bins = numpy.histogram(coinc, bins=self.bins)
+            histogram_slope_diffs, bins_slopes = numpy.histogram(
+                slope_diffs, bins=self.bins
+            )
+
+            # print(slope_diffs[:100])
 
             self.histBlock_ent1 = numpy.zeros(
                 (int(self.ui.IntTime.value() * 10), len(histogram1))
@@ -355,8 +344,8 @@ class CoincidenceExample(QMainWindow):
             self.histBlock_ent2 = numpy.zeros(
                 (int(self.ui.IntTime.value() * 10), len(histogram2))
             )
-            self.histBlock_coinc = numpy.zeros(
-                (int(self.ui.IntTime.value() * 10), len(histogram_coinc))
+            self.histBlock_slope_diffs = numpy.zeros(
+                (int(self.ui.IntTime.value() * 10), len(histogram_slope_diffs))
             )
 
             clocks_div = clocks[:: self.divider]
@@ -377,12 +366,14 @@ class CoincidenceExample(QMainWindow):
             self.plt_clock_corr_2 = self.correlationAxis.plot(
                 bins[:-1] * 1e-3, histogram2, color="#cc6a6a"
             )
-            self.plt_clock_corr_coinc = self.correlationAxis.plot(
-                bins[:-1] * 1e-3, histogram_coinc * 10, color="k"
-            )
+            # self.plt_clock_corr_coinc = self.correlationAxis.plot(
+            #     bins_slopes[:-1] * 1e-3, histogram_slope_diffs, color="k"
+            # )
             self.coinc_x = []
             self.coinc_y = []
-            self.coinc_line = self.coincAxis.plot(self.coinc_x, self.coinc_y, color="k")
+            self.coinc_line = self.slopeAxis.plot(
+                bins_slopes[:-1], histogram_slope_diffs, color="k"
+            )
             if self.ui.LogScaleCheck.isChecked():
                 self.correlationAxis.set_yscale("log")
                 # self.correlationAxis.set_ylim(.005,.04)
@@ -403,8 +394,9 @@ class CoincidenceExample(QMainWindow):
         self.clockAxis.grid()
         self.clockAxis.set_title("PLL Locking Performance")
 
-        self.coincAxis.grid(which="both")
-        self.coincAxis.set_yscale("log")
+        self.slopeAxis.grid(which="both")
+        # self.slopeAxis.set_yscale("log")
+        self.slopeAxis.set_title("Pulse Slope")
         # Generate nicer plots
         self.fig.tight_layout()
 
@@ -609,25 +601,6 @@ class CoincidenceExample(QMainWindow):
         self.reInit()
         self.updateMeasurements()
 
-    # def dBScan(self):
-    #     photonRate = SocketClient("10.7.0.101", 5050)
-    #     startdB = float(input("Start Attenuation: "))
-    #     stepdB = float(input("Attenuation Step Size: "))
-    #     stepsdB = int(input("Attenuation Steps: "))
-
-    #     dBlist = [startdB - stepdB * i for i in range(stepsdB)]
-
-    #     for dB in dBlist:
-    #         dBval = str(round(dB, 2))
-    #         command = "-Q " + dBval
-    #         # set the attenuation
-    #         photonRate.send(command)
-    #         sleep(1)
-
-    #         self.saveTagsSimple(dBval)
-    #         # uses the UI save time and saveName
-    #         sleep(1)
-
     def handleScanInput(self):
         start = float(input("start voltage: "))
         end = float(input("end voltage: "))
@@ -717,14 +690,6 @@ class CoincidenceExample(QMainWindow):
 
             print("Voltage: ", round(self.tagger.getTriggerLevel(channels[1]), 4))
             self.tagger.sync()
-
-            # file = str(self.ui.saveFileName.text()) + str(level) + "V.ttbin"
-            # print("saving ", file, " in working directory")
-            # file_writer = FileWriter(self.tagger, file, self.active_channels)
-            # file_writer = FileWriter(self.tagger, file, [channels[0],channels[1]])
-            # write for some time
-            # file_writer.stop()
-            # sleep(0.5)
 
         with open(f"trigger_scan_peacoq_{self.file_append}.json", "w") as file:
             file.write(json.dumps(save_data))
@@ -943,9 +908,6 @@ class CoincidenceExample(QMainWindow):
         self.ui.delayA.setValue(self.offset_a)
         self.ui.delayB.setValue(self.offset_b)
 
-        # double_adjustment = int((1 / 2) * (max_ps - (1 / 2) * 200 * 1))
-        # self.ui.delayA.setValue(double_adjustment)
-        # self.ui.delayB.setValue(-double_adjustment)
         self.ui.correlationBins.setValue(500)
         self.ui.correlationBinwidth.setValue(1)
         self.updateMeasurements()
@@ -960,8 +922,6 @@ class CoincidenceExample(QMainWindow):
             persistentData_ent2
         ) / len(persistentData_ent2)
 
-        # plt.plot(persistentData_ent1)
-        # plt.plot(persistentData_ent2)
         print(numpy.sum(persistentData_ent1))
         print(numpy.sum(persistentData_ent2))
 
@@ -1075,22 +1035,12 @@ class CoincidenceExample(QMainWindow):
             prop=1e-12,
             n_bins=8000000,
         )
-        # self.PLL = CustomPLLHistogram(
-        #     self.tagger,
-        #     data_channel_1,
-        #     data_channel_2,
-        #     clock_channel,
-        #     mult=1,  # clock multiplier
-        #     phase=0,
-        #     deriv=300,
-        #     prop=1.8e-12,
-        #     n_bins=800000,
-        # )
 
     def clockRefMode(self):
         self.load_file_params()
 
         print("initializing PLL with clock channel: ", self.active_channels[0])
+
         self.startPLL(
             self.active_channels[1], self.active_channels[2], self.active_channels[0]
         )
@@ -1098,16 +1048,6 @@ class CoincidenceExample(QMainWindow):
         self.ent = True
         self.init_int = True
         self.updateMeasurements()
-
-    def initVisibility(self):
-        self.inputValid = False
-        # I'm using a thread because I get a seg fault if I let the main
-        # ui update stall for too long.
-        # entanglement_measurment
-        self.entanglement_measurment()
-        # self.input_handler = threading.Thread(target=self.entanglement_measurment)
-        # # self.input_handler = threading.Thread(target=self.handleScanInput)
-        # self.input_handler.start()
 
     def saveClicked(self):
         """Handler for the save action button"""
@@ -1180,7 +1120,7 @@ class CoincidenceExample(QMainWindow):
                 else:
                     self.correlationAxis.set_yscale("linear")
                 ##############
-                clocks, pclocks, hist1, hist2, coinc = self.PLL.getData()
+                clocks, pclocks, hist1, hist2, slope_diffs = self.PLL.getData()
                 clocks_div = clocks[:: self.divider]
                 pclocks_div = pclocks[:: self.divider]
                 x_clocks = numpy.linspace(0, 1, len(clocks_div))
@@ -1217,10 +1157,12 @@ class CoincidenceExample(QMainWindow):
 
                 histogram1, bins = numpy.histogram(hist1, bins=self.bins)
                 histogram2, bins = numpy.histogram(hist2, bins=self.bins)
-                histogram_coinc, bins = numpy.histogram(coinc, bins=self.bins)
+                histogram_slope_diffs, slope_bins = numpy.histogram(
+                    slope_diffs, bins=self.bins
+                )
                 self.histBlock_ent1[self.BlockIndex] = histogram1
                 self.histBlock_ent2[self.BlockIndex] = histogram2
-                self.histBlock_coinc[self.BlockIndex] = histogram_coinc
+                self.histBlock_slope_diffs[self.BlockIndex] = histogram_slope_diffs
 
                 if self.event_loop_action is not None:
                     self.event_loop_action.evaluate(time.time(), len(coinc))
@@ -1255,30 +1197,19 @@ class CoincidenceExample(QMainWindow):
 
                     self.persistentData_ent1 = numpy.sum(self.histBlock_ent1, axis=0)
                     self.persistentData_ent2 = numpy.sum(self.histBlock_ent2, axis=0)
-                    self.persistentData_coinc = numpy.sum(self.histBlock_coinc, axis=0)
+                    self.persistentData_slope_diffs = numpy.sum(
+                        self.histBlock_slope_diffs, axis=0
+                    )
 
                     currentData_ent1 = self.persistentData_ent1
                     currentData_ent2 = self.persistentData_ent2
-                    currentData_coinc = self.persistentData_coinc
+                    currentData_slope_diffs = self.persistentData_slope_diffs
                     self.plt_clock_corr_1[0].set_ydata(currentData_ent1)
                     self.plt_clock_corr_2[0].set_ydata(currentData_ent2)
                     # multiplied by 10 just for better visibility in the UI
-                    self.plt_clock_corr_coinc[0].set_ydata(currentData_coinc * 10)
-                    if self.BlockIndex == 0:
-                        # if not self.input_mode:
-                        #     print(
-                        #         "Coincidences: ",
-                        #         numpy.sum(self.persistentData_coinc),
-                        #     )
-                        coincidences = numpy.sum(self.persistentData_coinc)
-                        self.coinc_idx += 1
-                        self.coinc_x.append(self.coinc_idx)
-                        self.coinc_y.append(coincidences)
-                        if len(self.coinc_x) > 50:
-                            self.coinc_x.pop(0)
-                            self.coinc_y.pop(0)
-                        self.coinc_line[0].set_xdata(self.coinc_x)
-                        self.coinc_line[0].set_ydata(self.coinc_y)
+                    # self.plt_clock_corr_coinc[0].set_ydata(currentData_coinc * 10)
+                    # if self.BlockIndex == 0:
+                    self.coinc_line[0].set_ydata(currentData_slope_diffs)
 
                 else:
                     currentData = numpy.sum(self.histBlock, axis=0)
@@ -1286,8 +1217,8 @@ class CoincidenceExample(QMainWindow):
 
             self.IntType = self.ui.IntType.currentText()
             self.correlationAxis.relim()
-            self.coincAxis.relim()
-            self.coincAxis.autoscale_view(True, True, True)
+            self.slopeAxis.relim()
+            self.slopeAxis.autoscale_view(True, True, True)
             self.correlationAxis.autoscale_view(True, True, True)
             self.canvas.draw()
             self.correlation.clear()
@@ -1304,8 +1235,6 @@ if __name__ == "__main__":
     # used to check if JPL swabian supports high res. It does not.
 
     tagger = createTimeTagger(resolution=Resolution.HighResC)
-
-    # tagger.setSoftwareClock
     # tagger = createTimeTagger()
 
     # If you want to include this window within a bigger UI,
