@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 # to generate new UI file: pyside2-uic CoincidenceExampleWindow_XXX.ui > CoincidenceExampleWindow_mx.py
 # Please use the QtDesigner to edit the ui interface file
-from CoincidenceExampleWindow_peacoq_2 import Ui_CoincidenceExample
+from window import Window
 
 # from CustomPLLHistogram import CustomPLLHistogram
 from peacoq_PLL import CustomPLLHistogram
@@ -57,11 +57,6 @@ from time import sleep
 import time
 import datetime
 
-# import time
-
-from SocketClient import SocketClient
-from awgClient import AWGClient
-
 
 class CoincidenceExample(QMainWindow):
     """Small example of how to create a UI for the TimeTagger with the PySide2 framework"""
@@ -72,7 +67,7 @@ class CoincidenceExample(QMainWindow):
 
         # Create the UI from the designer file and connect its action buttons
         super(CoincidenceExample, self).__init__()
-        self.ui = Ui_CoincidenceExample()
+        self.ui = Window()
         self.ui.setupUi(self)
         self.ui.startButton.clicked.connect(self.load_file_params)
         self.ui.clockRefMode.clicked.connect(self.clockRefMode)
@@ -614,24 +609,24 @@ class CoincidenceExample(QMainWindow):
         self.reInit()
         self.updateMeasurements()
 
-    def dBScan(self):
-        photonRate = SocketClient("10.7.0.101", 5050)
-        startdB = float(input("Start Attenuation: "))
-        stepdB = float(input("Attenuation Step Size: "))
-        stepsdB = int(input("Attenuation Steps: "))
+    # def dBScan(self):
+    #     photonRate = SocketClient("10.7.0.101", 5050)
+    #     startdB = float(input("Start Attenuation: "))
+    #     stepdB = float(input("Attenuation Step Size: "))
+    #     stepsdB = int(input("Attenuation Steps: "))
 
-        dBlist = [startdB - stepdB * i for i in range(stepsdB)]
+    #     dBlist = [startdB - stepdB * i for i in range(stepsdB)]
 
-        for dB in dBlist:
-            dBval = str(round(dB, 2))
-            command = "-Q " + dBval
-            # set the attenuation
-            photonRate.send(command)
-            sleep(1)
+    #     for dB in dBlist:
+    #         dBval = str(round(dB, 2))
+    #         command = "-Q " + dBval
+    #         # set the attenuation
+    #         photonRate.send(command)
+    #         sleep(1)
 
-            self.saveTagsSimple(dBval)
-            # uses the UI save time and saveName
-            sleep(1)
+    #         self.saveTagsSimple(dBval)
+    #         # uses the UI save time and saveName
+    #         sleep(1)
 
     def handleScanInput(self):
         start = float(input("start voltage: "))
@@ -736,58 +731,6 @@ class CoincidenceExample(QMainWindow):
 
         self.save_time = None
         self.trigger_levels = None
-
-    def dBScanAWG(self):
-
-        """
-        this can change the attenuation, then send a command to another computer (currently my laptop) that communicates
-        with the awg. This command starts a series of modulations on the awg.
-        """
-
-        choice = input(
-            "this will start a series of file saves, each with a different attenuation. \n "
-            "Do you also want to send a command to the awg-controlling computer for each attenuation? (y/n)"
-        )
-
-        if choice == "y":
-            photonRate = SocketClient("10.7.0.101", 5050)
-            awg = AWGClient()
-            startdB = float(input("Start Attenuation (largest dB): "))
-            stepdB = float(input("Attenuation Step Size: "))
-            stepsdB = int(input("Attenuation Steps: "))
-
-            dBlist = [startdB - stepdB * i for i in range(stepsdB)]
-
-            for dB in dBlist:
-                dBval = str(round(dB, 2))
-                command = "-Q " + dBval
-                # set the attenuation
-                photonRate.send(command)
-                sleep(0.5)
-                awg.send(
-                    "yes"
-                )  # start the modulation. saving should start soon enough after.
-
-                self.saveTagsSimple(dBval)
-                # uses the UI save time and saveName
-                sleep(60)
-        else:
-            photonRate = SocketClient("10.7.0.101", 5050)
-            startdB = float(input("Start Attenuation (largest dB): "))
-            stepdB = float(input("Attenuation Step Size: "))
-            stepsdB = int(input("Attenuation Steps: "))
-            dBlist = [startdB - stepdB * i for i in range(stepsdB)]
-            for dB in dBlist:
-                dBval = str(round(dB, 2))
-                command = "-Q " + dBval
-                # set the attenuation
-                photonRate.send(command)
-                sleep(1)
-                self.saveTagsSimple(
-                    dBval
-                )  # this will block for some time determined by saveTags option in gui
-                # uses the UI save time and saveName
-                sleep(3)
 
     def saveTrace(self):
 

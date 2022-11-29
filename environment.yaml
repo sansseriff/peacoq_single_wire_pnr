@@ -1,0 +1,10 @@
+name: peacoq
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - pyyaml
+  - conda-forge::numpy
+  - conda-forge::pyside2
+  - conda-forge::matplotlib
+  - numba
