@@ -45,9 +45,14 @@ sudo cp _TimeTagger.h <peacoq-path>
 sudo cp _TimeTagger.so <peacoq-path>
 ```
 
-
+Navigate back to the program directory: 
+```shell
+cd <peacoq-path>
+```
 
 run the program with:
 ```shell
 python peacoq_readout.py
 ```
+
+Hit the "Load File Params" button first, then the "Clock Referenced Mode" button to activate the PLL. 
