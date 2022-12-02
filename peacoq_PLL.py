@@ -68,18 +68,18 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         # Acquire a lock this instance to guarantee that process() is not running in parallel
         # This ensures to return a consistent data.
 
-        clocks = np.zeros(50)
-        pclocks = np.zeros(50)
-        # hist_1_tags = np.zeros(50)
-        # hist_2_tags = np.zeros(50)  # why do I make these?
-        self.hist_idxs = np.zeros(len(self.data_channels), dtype=np.int64)
-        self.hist_tags_data = np.zeros(
-            (
-                50,
-                self.max_bins,
-            ),
-            dtype=np.float64,
-        )
+        # clocks = np.zeros(50)
+        # pclocks = np.zeros(50)
+        # # hist_1_tags = np.zeros(50)
+        # # hist_2_tags = np.zeros(50)  # why do I make these?
+        # self.hist_idxs = np.zeros(len(self.data_channels), dtype=np.int64)
+        # self.hist_tags_data = np.zeros(
+        #     (
+        #         50,
+        #         self.max_bins,
+        #     ),
+        #     dtype=np.float64,
+        # )
 
         while 1:
             self._lock()
@@ -131,8 +131,8 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         self.hist_2_tags_data = np.zeros((self.max_bins,), dtype=np.float64)
         self.slope_diffs = np.zeros((self.max_bins,), dtype=np.float64)
 
-        self.raw_buffer = np.zeros((len(self.data_channels), 5), dtype=np.int64)
-        self.hist_buffer = np.zeros((len(self.data_channels), 5), dtype=np.float64)
+        self.raw_buffer = np.zeros((len(self.data_channels), 2), dtype=np.int64)
+        self.hist_buffer = np.zeros((len(self.data_channels), 2), dtype=np.float64)
 
     def on_start(self):
         # The lock is already acquired within the backend.

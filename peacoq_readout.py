@@ -168,7 +168,7 @@ class CoincidenceExample(QMainWindow):
         self.draw()
         self.timer = QTimer()
         self.timer.timeout.connect(self.draw)
-        self.timer.start(10)
+        self.timer.start(200)
         self.tagger.setEventDivider(9, self.clock_divider)
 
     def getCouterNormalizationFactor(self):
