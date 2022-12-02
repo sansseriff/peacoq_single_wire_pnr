@@ -8,12 +8,12 @@ Channels:
     channel: 5
     dead_time: 0.0
     delay: 0
-    trigger: 0.02
+    trigger: 0.018
   ChC:
     channel: 14
     dead_time: 0.0
     delay: 0
-    trigger: 0.02
+    trigger: 0.018
   ChD:
     channel: 18
     dead_time: 0.0
@@ -21,4 +21,4 @@ Channels:
     trigger: 1.0
 Histogram:
   bin_width: 1
-  bins: 1000
+  bins: 500

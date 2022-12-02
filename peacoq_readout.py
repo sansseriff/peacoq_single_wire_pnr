@@ -143,7 +143,7 @@ class CoincidenceExample(QMainWindow):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.draw)
-        self.timer.start(50)
+        self.timer.start(200)
         self.clock_divider = 250  # divider 156.25MHz down to 78.125 KHz
         self.tagger.setEventDivider(9, self.clock_divider)
 
@@ -233,9 +233,11 @@ class CoincidenceExample(QMainWindow):
 
         if self.ui.LogScaleCheck.isChecked():
             self.correlationAxis.set_yscale("log")
+            self.slopeAxis.set_yscale("log")
             # self.correlationAxis.set_ylim(.005,.04)
         else:
             self.correlationAxis.set_yscale("linear")
+            self.slopeAxis.set_yscale("linear")
 
         print("active channel 1: ", self.active_channels[1])
 
@@ -376,9 +378,11 @@ class CoincidenceExample(QMainWindow):
             )
             if self.ui.LogScaleCheck.isChecked():
                 self.correlationAxis.set_yscale("log")
+                self.slopeAxis.set_yscale("log")
                 # self.correlationAxis.set_ylim(.005,.04)
             else:
                 self.correlationAxis.set_yscale("linear")
+                self.slopeAxis.set_yscale("linear")
 
         else:
             index = self.correlation.getIndex()
@@ -1115,9 +1119,11 @@ class CoincidenceExample(QMainWindow):
             if self.ent:
                 if self.ui.LogScaleCheck.isChecked():
                     self.correlationAxis.set_yscale("log")
-                    # self.correlationAxis.set_ylim(.005,.04)
+                    self.slopeAxis.set_yscale("log")
+
                 else:
                     self.correlationAxis.set_yscale("linear")
+                    self.slopeAxis.set_yscale("linear")
                 ##############
                 clocks, pclocks, hists, slope_diffs = self.PLL.getData()
                 clocks_div = clocks[:: self.divider]
@@ -1156,6 +1162,9 @@ class CoincidenceExample(QMainWindow):
 
                 histogram1, bins = numpy.histogram(hists[0], bins=self.bins)
                 histogram2, bins = numpy.histogram(hists[1], bins=self.bins)
+                # print("max of slope diffs: ", numpy.max(slope_diffs))
+                # print("min of slope diffs: ", numpy.min(slope_diffs))
+                # print("##############################")
                 histogram_slope_diffs, slope_bins = numpy.histogram(
                     slope_diffs, bins=self.bins
                 )

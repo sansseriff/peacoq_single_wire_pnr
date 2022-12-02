@@ -283,6 +283,7 @@ class Window(object):
         self.deadTimeC = QtWidgets.QDoubleSpinBox(self.centralwidget)
         self.deadTimeC.setDecimals(0)
         self.deadTimeC.setObjectName("deadTimeC")
+        self.deadTimeC.setMaximum(1000.0)
         self.gridLayout.addWidget(self.deadTimeC, 3, 4, 1, 1)
 
         # self.channelD = QtWidgets.QDoubleSpinBox(self.centralwidget)

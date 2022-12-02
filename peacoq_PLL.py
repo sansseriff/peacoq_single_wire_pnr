@@ -210,7 +210,6 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             clock0 = -1
             clock0_dec = -0.1
             print("[READY] Finished FastProcess Initialization")
-            print("DF:LKSDFKJ:L:NFJKLD:NKLDSF")
             clock_idx = 0
             hist_idxs = np.zeros(len(data_channels), dtype=np.int64)
             coinc_idx = 0
@@ -242,55 +241,31 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                     if tag["channel"] == data_chan:
                         prev_raw_tag = raw_buffer[i, 0]
 
-                        # if q == 32:
-                        #     print("tag: ", tag["time"])
-                        #     print("prev_raw_tag: ", prev_raw_tag)
-                        #     print("difference: ", tag["time"] - prev_raw_tag)
-
                         delta_time = tag["time"] - prev_raw_tag
                         if delta_time > empty_time:
 
                             hist_tag = ((tag["time"]) - clock0) - clock0_dec
-                            # hist_tag = tag["time"] - raw_clock # NO pll
-                            # hist_tag = (tag["time"]+test_factor) - current_clock # no PLL
                             sub_period = period / mult
                             minor_cycles = (hist_tag + phase) // sub_period
                             hist_tag = hist_tag - (sub_period * minor_cycles)
-
-                            if q == 32:
-
-                                print(delta_time)
                             hist_tags_data[i, hist_idxs[i]] = hist_tag
                             hist_idxs[i] += 1
-
-                            ###### save_to_buffer
-                            hist_buffer[i, 1:] = hist_buffer[i, :-1]
-                            hist_buffer[i, 0] = hist_tag
-                            ######
+                            save_to_buffer(hist_buffer, i, hist_tag)
 
                             if i == 0:
                                 j = 1
                             else:
                                 j = 0
-                            # prev_other_channel = get_from_buffer(raw_buffer, j, 0)
-
                             prev_other_channel = raw_buffer[j, 0]
+                            prev_other_channel_hist = hist_buffer[j, 0]
+                            # if the raw tags are very close in time
                             if abs(tag["time"] - prev_other_channel) < 2000:
-                                diff = (tag["time"] + prev_other_channel) / 2
+                                # then average the clock-referenced hist tags
+                                diff = (hist_tag + prev_other_channel_hist) / 2
                                 slope_diffs[slope_diffs_idx] = diff
                                 slope_diffs_idx += 1
 
-                        # update buffer even if pre tag was not 200ns valid
-                        ###### save_to_buffer
-                        raw_buffer[i, 1:] = raw_buffer[i, :-1]
-                        raw_buffer[i, 0] = tag["time"]
-                        ######
-
-                        # save_to_buffer(raw_buffer, i, tag["time"])
-                        # save_to_buffer(hist_buffer, i, hist_tag)
-
-                        # j = alt_channel(i)
-
+                        save_to_buffer(raw_buffer, i, tag["time"])
                         """
                         need some way of loading differnt features here, 
                         and exporting their resutls in an orderly way
