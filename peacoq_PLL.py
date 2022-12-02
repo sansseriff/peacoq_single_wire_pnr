@@ -131,8 +131,8 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         self.hist_2_tags_data = np.zeros((self.max_bins,), dtype=np.float64)
         self.slope_diffs = np.zeros((self.max_bins,), dtype=np.float64)
 
-        self.raw_buffer = np.zeros((len(self.data_channels), 2), dtype=np.int64)
-        self.hist_buffer = np.zeros((len(self.data_channels), 2), dtype=np.float64)
+        self.raw_buffer = np.zeros((len(self.data_channels), 1), dtype=np.int64)
+        self.hist_buffer = np.zeros((len(self.data_channels), 1), dtype=np.float64)
 
     def on_start(self):
         # The lock is already acquired within the backend.
@@ -187,6 +187,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         empty_time = 180000
         tag_1_buffer = 0
         tag_2_buffer = 0
+        q = 0
 
         if init:
             msg = f"Init PLL with clock channel {clock_channel}"
@@ -209,11 +210,12 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             clock0 = -1
             clock0_dec = -0.1
             print("[READY] Finished FastProcess Initialization")
+            print("DF:LKSDFKJ:L:NFJKLD:NKLDSF")
             clock_idx = 0
             hist_idxs = np.zeros(len(data_channels), dtype=np.int64)
             coinc_idx = 0
 
-        for i, tag in enumerate(tags):
+        for tag in tags:
             q = q + 1
 
             if tag["channel"] == clock_channel:
@@ -241,29 +243,54 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                 for i, data_chan in enumerate(data_channels):
                     if tag["channel"] == data_chan:
-                        prev_raw_tag = get_from_buffer(raw_buffer, i, 0)
-                        if tag["time"] - prev_raw_tag > empty_time:
+                        prev_raw_tag = raw_buffer[i, 0]
+
+                        # if q == 32:
+                        #     print("tag: ", tag["time"])
+                        #     print("prev_raw_tag: ", prev_raw_tag)
+                        #     print("difference: ", tag["time"] - prev_raw_tag)
+
+                        delta_time = tag["time"] - prev_raw_tag
+                        if delta_time > empty_time:
+                            if q == 32:
+                                print(delta_time)
                             hist_tags_data[i, hist_idxs[i]] = hist_tag
                             hist_idxs[i] += 1
-                            save_to_buffer(raw_buffer, i, tag["time"])
-                            save_to_buffer(hist_buffer, i, hist_tag)
 
-                        # j = alt_channel(i)
+                            ###### save_to_buffer
+                            raw_buffer[i, 1:] = raw_buffer[i, :-1]
+                            raw_buffer[i, 0] = tag["time"]
+                            ######
 
-                        if i == 0:
-                            j = 1
-                        else:
-                            j = 0
-                        prev_other_channel = get_from_buffer(raw_buffer, j, 0)
-                        if abs(tag["time"] - prev_other_channel) < 2000:
-                            diff = (tag["time"] + prev_other_channel) / 2
-                            slope_diffs[slope_diffs_idx] = diff
-                            slope_diffs_idx += 1
+                            ###### save_to_buffer
+                            hist_buffer[i, 1:] = hist_buffer[i, :-1]
+                            hist_buffer[i, 0] = hist_tag
+                            ######
+
+                            # save_to_buffer(raw_buffer, i, tag["time"])
+                            # save_to_buffer(hist_buffer, i, hist_tag)
+
+                            # j = alt_channel(i)
+
+                            if i == 0:
+                                j = 1
+                            else:
+                                j = 0
+                            # prev_other_channel = get_from_buffer(raw_buffer, j, 0)
+
+                            prev_other_channel = raw_buffer[j, 0]
+                            if abs(tag["time"] - prev_other_channel) < 2000:
+                                diff = (tag["time"] + prev_other_channel) / 2
+                                slope_diffs[slope_diffs_idx] = diff
+                                slope_diffs_idx += 1
 
                         """
                         need some way of loading differnt features here, 
                         and exporting their resutls in an orderly way
                         """
+
+                    # else:
+                    #     continue
 
                 # if (tag["channel"] == data_channel_1) or (tag["channel"] == data_channel_2):
                 #     if clock0 != -1:
@@ -301,9 +328,6 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                 # hist_2_tags_data[hist_2_idx] = hist_tag
                 # hist_2_idx += 1
-
-                else:
-                    continue
 
         if init:
             init = 0
