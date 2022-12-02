@@ -295,6 +295,10 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                         old_tag_2 = tag["time"]
 
                         if abs(tag["time"] - tag_1_buffer) < 2000:
+
+                            
+
+                        if abs(tag["time"] - tag_1_buffer) < 2000:
                             diff = tag["time"] - tag_1_buffer
                             slope_diffs[slope_diffs_idx] = diff
                             slope_diffs_idx += 1
