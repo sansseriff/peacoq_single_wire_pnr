@@ -321,7 +321,7 @@ class CoincidenceExample(QMainWindow):
         self.slopeAxis.clear()
 
         if self.ent:
-            clocks, pclocks, hist1, hist2, slope_diffs = self.PLL.getData()
+            clocks, pclocks, hists, slope_diffs = self.PLL.getData()
 
             try:
                 # max = numpy.max(hist1)
@@ -330,8 +330,8 @@ class CoincidenceExample(QMainWindow):
             except:
                 max = 0
             self.bins = numpy.arange(1, max)
-            histogram1, bins = numpy.histogram(hist1, bins=self.bins)
-            histogram2, bins = numpy.histogram(hist2, bins=self.bins)
+            histogram1, bins = numpy.histogram(hists[0], bins=self.bins)
+            histogram2, bins = numpy.histogram(hists[1], bins=self.bins)
             histogram_slope_diffs, bins_slopes = numpy.histogram(
                 slope_diffs, bins=self.bins
             )
@@ -679,8 +679,8 @@ class CoincidenceExample(QMainWindow):
             _ = self.PLL.getData()
             sleep(save_time)
 
-            clocks, pclocks, hist1, hist2, coinc = self.PLL.getData()
-            histogram1, bins = numpy.histogram(hist1, bins=self.bins)
+            clocks, pclocks, hists, coinc = self.PLL.getData()
+            histogram1, bins = numpy.histogram(hists[0], bins=self.bins)
             save_data["data_list"].append(
                 {
                     "trigger": round(self.tagger.getTriggerLevel(channels[1]), 4),
@@ -1020,14 +1020,13 @@ class CoincidenceExample(QMainWindow):
         with open("./peacoq_UI_params.yaml", "w") as file:
             yaml.dump(ui_data, file)
 
-    def startPLL(self, data_channel_1, data_channel_2, clock_channel):
+    def startPLL(self, data_channels, clock_channel):
         self.tagger.setEventDivider(self.active_channels[0], 1000)
 
         # I should be pulling these settings from a local diccionary...
         self.PLL = CustomPLLHistogram(
             self.tagger,
-            data_channel_1,
-            data_channel_2,
+            data_channels,
             clock_channel,
             mult=self.clock_divider,  # clock multiplier
             phase=0,
@@ -1042,7 +1041,7 @@ class CoincidenceExample(QMainWindow):
         print("initializing PLL with clock channel: ", self.active_channels[0])
 
         self.startPLL(
-            self.active_channels[1], self.active_channels[2], self.active_channels[0]
+            [self.active_channels[1], self.active_channels[2]], self.active_channels[0]
         )
 
         self.ent = True
@@ -1120,7 +1119,7 @@ class CoincidenceExample(QMainWindow):
                 else:
                     self.correlationAxis.set_yscale("linear")
                 ##############
-                clocks, pclocks, hist1, hist2, slope_diffs = self.PLL.getData()
+                clocks, pclocks, hists, slope_diffs = self.PLL.getData()
                 clocks_div = clocks[:: self.divider]
                 pclocks_div = pclocks[:: self.divider]
                 x_clocks = numpy.linspace(0, 1, len(clocks_div))
@@ -1155,8 +1154,8 @@ class CoincidenceExample(QMainWindow):
                 self.clockAxis.relim()
                 ##############
 
-                histogram1, bins = numpy.histogram(hist1, bins=self.bins)
-                histogram2, bins = numpy.histogram(hist2, bins=self.bins)
+                histogram1, bins = numpy.histogram(hists[0], bins=self.bins)
+                histogram2, bins = numpy.histogram(hists[1], bins=self.bins)
                 histogram_slope_diffs, slope_bins = numpy.histogram(
                     slope_diffs, bins=self.bins
                 )
