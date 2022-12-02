@@ -184,7 +184,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         """
 
         zero_cycles = 0
-        empty_time = 1800000
+        empty_time = 180000
         tag_1_buffer = 0
         tag_2_buffer = 0
         q = 0
@@ -261,19 +261,9 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                             hist_idxs[i] += 1
 
                             ###### save_to_buffer
-                            raw_buffer[i, 1:] = raw_buffer[i, :-1]
-                            raw_buffer[i, 0] = tag["time"]
-                            ######
-
-                            ###### save_to_buffer
                             hist_buffer[i, 1:] = hist_buffer[i, :-1]
                             hist_buffer[i, 0] = hist_tag
                             ######
-
-                            # save_to_buffer(raw_buffer, i, tag["time"])
-                            # save_to_buffer(hist_buffer, i, hist_tag)
-
-                            # j = alt_channel(i)
 
                             if i == 0:
                                 j = 1
@@ -286,6 +276,17 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                                 diff = (tag["time"] + prev_other_channel) / 2
                                 slope_diffs[slope_diffs_idx] = diff
                                 slope_diffs_idx += 1
+
+                        # update buffer even if pre tag was not 200ns valid
+                        ###### save_to_buffer
+                        raw_buffer[i, 1:] = raw_buffer[i, :-1]
+                        raw_buffer[i, 0] = tag["time"]
+                        ######
+
+                        # save_to_buffer(raw_buffer, i, tag["time"])
+                        # save_to_buffer(hist_buffer, i, hist_tag)
+
+                        # j = alt_channel(i)
 
                         """
                         need some way of loading differnt features here, 
