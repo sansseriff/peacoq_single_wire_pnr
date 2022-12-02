@@ -184,7 +184,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         """
 
         zero_cycles = 0
-        empty_time = 180000
+        empty_time = 1800000
         tag_1_buffer = 0
         tag_2_buffer = 0
         q = 0
@@ -232,14 +232,17 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                     deriv,
                 )
 
-            if tag["channel"] != clock_channel:
-                if clock0 != -1:
-                    hist_tag = ((tag["time"]) - clock0) - clock0_dec
-                    # hist_tag = tag["time"] - raw_clock # NO pll
-                    # hist_tag = (tag["time"]+test_factor) - current_clock # no PLL
-                    sub_period = period / mult
-                    minor_cycles = (hist_tag + phase) // sub_period
-                    hist_tag = hist_tag - (sub_period * minor_cycles)
+            if (tag["channel"] == data_channels[0]) or (
+                tag["channel"] == data_channels[1]
+            ):
+                if clock0 == -1:
+                    continue
+                hist_tag = ((tag["time"]) - clock0) - clock0_dec
+                # hist_tag = tag["time"] - raw_clock # NO pll
+                # hist_tag = (tag["time"]+test_factor) - current_clock # no PLL
+                sub_period = period / mult
+                minor_cycles = (hist_tag + phase) // sub_period
+                hist_tag = hist_tag - (sub_period * minor_cycles)
 
                 for i, data_chan in enumerate(data_channels):
                     if tag["channel"] == data_chan:
