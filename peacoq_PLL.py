@@ -105,6 +105,16 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                 self.hist_idxs = np.zeros(len(self.data_channels), dtype=np.int64)
                 self.slope_diffs_idx = 0
                 self.coinc_idx = 0
+                print("stats 0r: ", self.stats[0] / np.sum(self.stats))
+                print("stats 1r: ", self.stats[1] / np.sum(self.stats))
+                print("stats 2+r: ", self.stats[2] / np.sum(self.stats))
+                print()
+                print("stats 0r: ", self.stats[0])
+                print("stats 1r: ", self.stats[1])
+                print("stats 2+r: ", self.stats[2])
+                print("##########################")
+
+                self.stats = np.zeros(3, dtype=np.int64)
                 ###################
                 self._unlock()
                 return clocks, pclocks, hist_tags, slope_diffs
@@ -133,6 +143,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
         self.raw_buffer = np.zeros((len(self.data_channels), 1), dtype=np.int64)
         self.hist_buffer = np.zeros((len(self.data_channels), 1), dtype=np.float64)
+        self.stats = np.zeros(3, dtype=np.int64)
 
     def on_start(self):
         # The lock is already acquired within the backend.
@@ -172,6 +183,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         q,
         raw_buffer,
         hist_buffer,
+        stats,
     ):
 
         """
@@ -188,6 +200,8 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         tag_1_buffer = 0
         tag_2_buffer = 0
         q = 0
+        zero_kets = 0
+        plus_1_kets = 0
 
         if init:
             msg = f"Init PLL with clock channel {clock_channel}"
@@ -244,6 +258,15 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                         delta_time = tag["time"] - prev_raw_tag
                         if delta_time > empty_time:
 
+                            cycles = round(
+                                delta_time / 100000, 1
+                            )  # about 200, 300, 400, etc
+
+                            # I need to be careful about double counting
+                            stats[0] += int((cycles - 2.0) / 2)
+                            # if cycles == 2.0:
+                            #     stats[1] += 1
+
                             hist_tag = ((tag["time"]) - clock0) - clock0_dec
                             sub_period = period / mult
                             minor_cycles = (hist_tag + phase) // sub_period
@@ -264,6 +287,10 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                                 diff = (hist_tag + prev_other_channel_hist) / 2
                                 slope_diffs[slope_diffs_idx] = diff
                                 slope_diffs_idx += 1
+                                if diff < 236:
+                                    stats[2] += 1
+                                else:
+                                    stats[1] += 1
 
                         save_to_buffer(raw_buffer, i, tag["time"])
                         """
@@ -310,6 +337,11 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                 # hist_2_tags_data[hist_2_idx] = hist_tag
                 # hist_2_idx += 1
+        # print("zero_kets: ", zero_kets)
+        # print("one_plus_kets: ", plus_1_kets)
+        # print("zero_ratio: ", zero_kets / (zero_kets + plus_1_kets))
+        # print("one_plus_ratio: ", plus_1_kets / (zero_kets + plus_1_kets))
+        # print("#####################")
 
         if init:
             init = 0
@@ -386,6 +418,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             self.i,
             self.raw_buffer,
             self.hist_buffer,
+            self.stats,
         )
 
 
