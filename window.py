@@ -235,17 +235,17 @@ class Window(object):
         self.saveFileName = QtWidgets.QLineEdit(self.centralwidget)
         self.saveFileName.setObjectName("saveFileName")
         self.gridLayout.addWidget(self.saveFileName, 9, 2, 1, 2)
-        self.intf_voltage = QtWidgets.QDoubleSpinBox(self.centralwidget)
-        self.intf_voltage.setMinimum(-1000)
-        self.intf_voltage.setMaximum(1000)
-        self.intf_voltage.setSingleStep(0.003)
-        self.intf_voltage.setDecimals(3)
-        self.intf_voltage.setProperty("value", 0)
-        self.intf_voltage.setObjectName("intf_voltage")
-        self.gridLayout.addWidget(self.intf_voltage, 8, 2, 1, 1)
-        self.set_intf_voltage = QtWidgets.QPushButton(self.centralwidget)
-        self.set_intf_voltage.setObjectName("set_intf_voltage")
-        self.gridLayout.addWidget(self.set_intf_voltage, 8, 3, 1, 1)
+        self.save_time = QtWidgets.QDoubleSpinBox(self.centralwidget)
+        self.save_time.setMinimum(-1000)
+        self.save_time.setMaximum(1000)
+        self.save_time.setSingleStep(0.003)
+        self.save_time.setDecimals(3)
+        self.save_time.setProperty("value", 0)
+        self.save_time.setObjectName("save_time")
+        self.gridLayout.addWidget(self.save_time, 8, 2, 1, 1)
+        self.set_save_time = QtWidgets.QPushButton(self.centralwidget)
+        self.set_save_time.setObjectName("set_save_time")
+        self.gridLayout.addWidget(self.set_save_time, 8, 3, 1, 1)
         self.initScan = QtWidgets.QPushButton(self.centralwidget)
         self.initScan.setObjectName("initScan")
         self.gridLayout.addWidget(self.initScan, 8, 4, 1, 1)
@@ -480,7 +480,7 @@ class Window(object):
         )
         self.label_16.setText(
             QtWidgets.QApplication.translate(
-                "CoincidenceExample", "intf_voltage", None, -1
+                "CoincidenceExample", "save_time", None, -1
             )
         )
         self.label_15.setText(
@@ -494,10 +494,10 @@ class Window(object):
         self.deadTimeA.setSuffix(
             QtWidgets.QApplication.translate("CoincidenceExample", " ns", None, -1)
         )
-        self.intf_voltage.setSuffix(
-            QtWidgets.QApplication.translate("CoincidenceExample", " V", None, -1)
+        self.save_time.setSuffix(
+            QtWidgets.QApplication.translate("CoincidenceExample", " s", None, -1)
         )
-        self.set_intf_voltage.setText(
+        self.set_save_time.setText(
             QtWidgets.QApplication.translate("CoincidenceExample", "Set", None, -1)
         )
         self.initScan.setText(

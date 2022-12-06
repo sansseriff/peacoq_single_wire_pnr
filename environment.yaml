@@ -8,3 +8,4 @@ dependencies:
   - conda-forge::pyside2
   - conda-forge::matplotlib
   - numba
+  - conda-forge::orjson

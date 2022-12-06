@@ -15,6 +15,7 @@ from window import Window
 
 # from CustomPLLHistogram import CustomPLLHistogram
 from peacoq_PLL import CustomPLLHistogram
+from SocketClient import SocketClient
 
 # from snspd_measure.inst.teledyneT3PS import teledyneT3PS
 import viz
@@ -33,6 +34,8 @@ warnings.filterwarnings("ignore")
 # for scope trace
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+
+from measurement_managment import Action, AttenuationAndIntegrateScan
 
 # all required TimeTagger dependencies
 from TimeTagger import (
@@ -73,8 +76,8 @@ class CoincidenceExample(QMainWindow):
         self.ui.clockRefMode.clicked.connect(self.clockRefMode)
         self.ui.clearButton.clicked.connect(self.export_file_params)
         self.ui.saveButton.clicked.connect(self.saveHistData)
-        self.ui.initScan.clicked.connect(self.triggerJitterScan)
-        self.ui.set_intf_voltage.clicked.connect(self.load_file_params)
+        self.ui.initScan.clicked.connect(self.dBScan)
+        self.ui.set_save_time.clicked.connect(self.load_file_params)
 
         # Update the measurements whenever any input configuration changes
         self.ui.channelA.valueChanged.connect(self.updateMeasurements)
@@ -93,7 +96,7 @@ class CoincidenceExample(QMainWindow):
         self.ui.deadTimeB.valueChanged.connect(self.updateMeasurements)
         self.ui.deadTimeC.valueChanged.connect(self.updateMeasurements)
         self.ui.deadTimeD.valueChanged.connect(self.updateMeasurements)
-        self.ui.intf_voltage.valueChanged.connect(self.load_file_params)
+        self.ui.save_time.valueChanged.connect(self.load_file_params)
 
         self.ui.testsignalA.stateChanged.connect(self.updateMeasurements)
         self.ui.testsignalB.stateChanged.connect(self.updateMeasurements)
@@ -538,7 +541,7 @@ class CoincidenceExample(QMainWindow):
             [channels[0], self.a_combined.getChannel(), self.b_combined.getChannel()],
         )
         # file_writer = FileWriter(self.tagger, file, [channels[0],channels[1]])
-        sleep(self.ui.saveTime.value())  # write for some time
+        sleep(self.ui.save_time.value())  # write for some time
         file_writer.stop()
         print("done!")
         self.reInit()
@@ -593,17 +596,36 @@ class CoincidenceExample(QMainWindow):
 
         # self.a_combined = AverageChannel(self.tagger, -3, (-3, -4))
         # self.b_combined = AverageChannel(self.tagger, -6, (-6, -7, -8))
-        self.tagger.setEventDivider(9, self.clock_divider)
+        # self.tagger.setEventDivider(9, self.clock_divider)
         file = str(self.ui.saveFileName.text()) + str(nameAddition) + ".ttbin"
         print("saving ", file, " in working directory")
         print("starting save")
         file_writer = FileWriter(self.tagger, file, self.active_channels)
         # file_writer = FileWriter(self.tagger, file, [channels[0],channels[1]])
-        sleep(self.ui.saveTime.value())  # write for some time
+        sleep(self.ui.save_time.value())  # write for some time
         file_writer.stop()
         print("ending save")
         self.reInit()
         self.updateMeasurements()
+
+    def dBScan(self):
+        photonRate = SocketClient("10.7.0.101", 5050)
+        startdB = float(input("Start Attenuation: "))
+        stepdB = float(input("Attenuation Step Size: "))
+        stepsdB = int(input("Attenuation Steps: "))
+
+        dBlist = [startdB - stepdB * i for i in range(stepsdB)]
+
+        for dB in dBlist:
+            dBval = str(round(dB, 2))
+            command = "-Q " + dBval
+            # set the attenuation
+            photonRate.send(command)
+            sleep(1)
+
+            self.saveTagsSimple(dBval)
+            # uses the UI save time and saveName
+            sleep(2)
 
     def handleScanInput(self):
         start = float(input("start voltage: "))
@@ -621,6 +643,19 @@ class CoincidenceExample(QMainWindow):
         print(
             f"Will do a scan over {len(self.trigger_levels)} with {self.save_time} seconds per point"
         )
+
+    def attenuation_pnr_scan(self):
+        with open("./measurment_params.yaml", "r", encoding="utf8") as stream:
+            try:
+                params = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+        params = params["attenuation_scan"]
+
+        tracker = Action()
+        self.event_loop_action = tracker
+
+        tracker.add_action(AttenuationAndIntegrateScan(params))
 
     def setupJitterScan(self):
         self.input_handler = threading.Thread(target=self.handleScanInput)
@@ -1025,7 +1060,8 @@ class CoincidenceExample(QMainWindow):
             yaml.dump(ui_data, file)
 
     def startPLL(self, data_channels, clock_channel):
-        self.tagger.setEventDivider(self.active_channels[0], 1000)
+        # this line was so hard to debug!!!
+        # self.tagger.setEventDivider(self.active_channels[0], 1000)
 
         # I should be pulling these settings from a local diccionary...
         self.PLL = CustomPLLHistogram(
@@ -1103,7 +1139,7 @@ class CoincidenceExample(QMainWindow):
 
     def draw(self):
         """Handler for the timer event to update the plots"""
-
+        # print(self.tagger.getOverflows())
         if self.running:
             if self.BlockIndex >= int(self.ui.IntTime.value() * 10):
                 self.BlockIndex = 0

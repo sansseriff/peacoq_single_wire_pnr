@@ -141,8 +141,8 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         self.hist_2_tags_data = np.zeros((self.max_bins,), dtype=np.float64)
         self.slope_diffs = np.zeros((self.max_bins,), dtype=np.float64)
 
-        self.raw_buffer = np.zeros((len(self.data_channels), 1), dtype=np.int64)
-        self.hist_buffer = np.zeros((len(self.data_channels), 1), dtype=np.float64)
+        self.raw_buffer = np.zeros((len(self.data_channels), 3), dtype=np.int64)
+        self.hist_buffer = np.zeros((len(self.data_channels), 3), dtype=np.float64)
         self.stats = np.zeros(3, dtype=np.int64)
 
     def on_start(self):
@@ -195,6 +195,8 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                        this method can run in parallel with other python code
         """
 
+        debug = False
+
         zero_cycles = 0
         empty_time = 180000
         tag_1_buffer = 0
@@ -202,6 +204,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         q = 0
         zero_kets = 0
         plus_1_kets = 0
+        old_time = 0
 
         if init:
             msg = f"Init PLL with clock channel {clock_channel}"
@@ -231,6 +234,10 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         for tag in tags:
             q = q + 1
 
+            # if tag["time"] < old_time:
+            #     print("out of order!")
+            # old_time = tag["time"]
+
             if tag["channel"] == clock_channel:
                 clock0, period, clock_data, clock_idx, phi_old = clock_lock(
                     tag["time"],
@@ -256,19 +263,29 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                         prev_raw_tag = raw_buffer[i, 0]
 
                         delta_time = tag["time"] - prev_raw_tag
+
                         if delta_time > empty_time:
+
+                            if debug and (q == 33 or q == 32 or q == 31):
+                                print(delta_time)
 
                             cycles = round(
                                 delta_time / 100000, 1
                             )  # about 200, 300, 400, etc
 
                             # I need to be careful about double counting
-                            stats[0] += int((cycles - 2.0) / 2)
+                            if i == 0:
+                                stats[0] += cycles - 2.0  # do I need the 2?
+                            # if q == 33 or q == 32 or q == 31:
+                            #     print("stats[0] is now: ", stats[0])
                             # if cycles == 2.0:
                             #     stats[1] += 1
 
                             hist_tag = ((tag["time"]) - clock0) - clock0_dec
                             sub_period = period / mult
+                            # if q == 32:
+                            #     print("period: ", period)
+                            #     print("sub period: ", sub_period)
                             minor_cycles = (hist_tag + phase) // sub_period
                             hist_tag = hist_tag - (sub_period * minor_cycles)
                             hist_tags_data[i, hist_idxs[i]] = hist_tag
@@ -283,11 +300,28 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                             prev_other_channel_hist = hist_buffer[j, 0]
                             # if the raw tags are very close in time
                             if abs(tag["time"] - prev_other_channel) < 2000:
+
+                                # if q == 32:
+
+                                # print(
+                                #     "tag minus prev other channel: ",
+                                #     tag["time"] - prev_other_channel,
+                                # )
+                                # print(f"less than 2000 {j}")
                                 # then average the clock-referenced hist tags
-                                diff = (hist_tag + prev_other_channel_hist) / 2
+                                diff = (
+                                    hist_tag + prev_other_channel_hist
+                                ) / 2  # average in histogram space
+                                # diff = (
+                                #     tag["time"] - prev_other_channel
+                                # )  # slope measurment
                                 slope_diffs[slope_diffs_idx] = diff
                                 slope_diffs_idx += 1
-                                if diff < 236:
+                                # if q == 32:
+                                #     print("slope diff: ", diff)
+                                #     print("raw_buffer", raw_buffer - np.min(raw_buffer))
+                                #     print("hist_buffer", hist_buffer)
+                                if diff < 200:
                                     stats[2] += 1
                                 else:
                                     stats[1] += 1
