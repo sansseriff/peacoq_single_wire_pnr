@@ -76,7 +76,7 @@ class CoincidenceExample(QMainWindow):
         self.ui.clockRefMode.clicked.connect(self.clockRefMode)
         self.ui.clearButton.clicked.connect(self.export_file_params)
         self.ui.saveButton.clicked.connect(self.saveHistData)
-        self.ui.initScan.clicked.connect(self.dBScan)
+        self.ui.initScan.clicked.connect(self.attenuation_pnr_scan)
         self.ui.set_save_time.clicked.connect(self.load_file_params)
 
         # Update the measurements whenever any input configuration changes
@@ -326,7 +326,7 @@ class CoincidenceExample(QMainWindow):
         self.slopeAxis.clear()
 
         if self.ent:
-            clocks, pclocks, hists, slope_diffs = self.PLL.getData()
+            clocks, pclocks, hists, slope_diffs, stats = self.PLL.getData()
 
             try:
                 # max = numpy.max(hist1)
@@ -655,7 +655,10 @@ class CoincidenceExample(QMainWindow):
         tracker = Action()
         self.event_loop_action = tracker
 
-        tracker.add_action(AttenuationAndIntegrateScan(params))
+        scan = AttenuationAndIntegrateScan(params)
+        scan.enable_save("./data/pnr_scan.json")
+
+        tracker.add_action(scan)
 
     def setupJitterScan(self):
         self.input_handler = threading.Thread(target=self.handleScanInput)
@@ -1076,7 +1079,7 @@ class CoincidenceExample(QMainWindow):
         )
 
     def clockRefMode(self):
-        self.load_file_params()
+        # self.load_file_params()
 
         print("initializing PLL with clock channel: ", self.active_channels[0])
 
@@ -1161,7 +1164,7 @@ class CoincidenceExample(QMainWindow):
                     self.correlationAxis.set_yscale("linear")
                     self.slopeAxis.set_yscale("linear")
                 ##############
-                clocks, pclocks, hists, slope_diffs = self.PLL.getData()
+                clocks, pclocks, hists, slope_diffs, stats = self.PLL.getData()
                 clocks_div = clocks[:: self.divider]
                 pclocks_div = pclocks[:: self.divider]
                 x_clocks = numpy.linspace(0, 1, len(clocks_div))
@@ -1209,7 +1212,9 @@ class CoincidenceExample(QMainWindow):
                 self.histBlock_slope_diffs[self.BlockIndex] = histogram_slope_diffs
 
                 if self.event_loop_action is not None:
-                    self.event_loop_action.evaluate(time.time(), len(coinc))
+                    self.event_loop_action.evaluate(
+                        time.time(), stats, hist=histogram_slope_diffs, bins=slope_bins
+                    )
 
             else:
                 index = self.correlation.getIndex()

@@ -4,6 +4,7 @@ import numpy as np
 import json
 import orjson
 import random
+import inspect
 
 """
 Actions can contain other actions, 
@@ -29,19 +30,20 @@ class Action:
         self.event_list.append(object)
 
     def evaluate(self, current_time, counts, **kwargs):
+
         if self.pass_state:
-            return {"state": "passed"}
+            return {"state": "passed", "name": self.__class__.__name__}
             """remember how I decided an object should be allowed 
             to deactivate itself, but it should not delete itself"""
-        response = self.event_list[0].evaluate(current_time, counts)
-        if (
-            response["state"] == "finished"
-        ):  # might want to change these to response.get()
+        response = self.event_list[0].evaluate(current_time, counts, **kwargs)
+        if response["state"] == "finished":
             response.pop("state", None)
+
             self.results.append(response)
             self.event_list.pop(0)
             if len(self.event_list) == 0:
                 self.pass_state = True  # deactivates this function in this object
+
                 self.final_state = {
                     "state": "finished",
                     "name": self.__class__.__name__,
@@ -49,9 +51,12 @@ class Action:
                 }
                 if self.save:
                     self.do_save()
+
                 return self.final_state
             # only if the previous is finished do you recursively call evaluate
-            self.evaluate(current_time, counts)
+            # I NEED A RETURN!!!!
+            return self.evaluate(current_time, counts, **kwargs)
+
         return {"state": "waiting", "results": response}
 
         # how do I bubble up the results from the scan? In each evaluate?
@@ -62,7 +67,10 @@ class Action:
 
     def do_save(self):
         with open(self.save_name, "wb") as file:
-            file.write(orjson.dumps(self.final_state), orjson.OPT_SERIALIZE_NUMPY)
+
+            file.write(
+                orjson.dumps(self.final_state, option=orjson.OPT_SERIALIZE_NUMPY)
+            )
 
     def enable_save(self, save_name="output_file.json"):
         self.save_name = save_name
@@ -75,7 +83,10 @@ class Action:
 
         print(
             orjson.dumps(
-                data, option=orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS
+                data,
+                option=orjson.OPT_INDENT_2
+                | orjson.OPT_SORT_KEYS
+                | orjson.OPT_SERIALIZE_NUMPY,
             ).decode("utf-8")
         )
 
@@ -128,14 +139,16 @@ class ChangeAttenuation(Action):
         self.attenuation = attenuation
         self.attenuator = SocketClient("10.7.0.101", 5050)
 
-    def evaluate(self):
-        dBval = str(round(self.attenuation, 2))
+    def evaluate(self, current_time, counts, **kwargs):
+        # using 3 attenuators in series. Each one has precision up to .05 dB
+        dBval = str(round(3 * 0.05 * round(self.attenuation / (3 * 0.05)), 2))
         command = "-Q " + dBval
+
         self.attenuator.send(command)
         self.final_state = {
             "state": "finished",
             "name": self.__class__.__name__,
-            "attenuation": self.attenuation,
+            "attenuation": dBval,
         }
         return self.final_state
 
@@ -146,7 +159,14 @@ class AttenuationAndIntegrate(Action):
 
         self.add_action(ChangeAttenuation(params["attenuation"]))
         self.add_action(Wait(params["wait_time"]))
-        self.add_action(ValueIntegrate(params["minimum_total_counts"]))
+        self.add_action(ValueIntegrateHistogram(params["minimum_total_counts"]))
+
+    def evaluate(self, current_time, counts, **kwargs):
+        res = super().evaluate(current_time, counts, **kwargs)
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+
+        return res
 
 
 class AttenuationAndIntegrateScan(Action):
@@ -160,9 +180,6 @@ class AttenuationAndIntegrateScan(Action):
         for attenuation in attenuation_list:
             params["attenuation"] = attenuation
             self.add_action(AttenuationAndIntegrate(params))
-        self.enable_save()
-
-    # self.data = kwargs.get(self.data_name)
 
 
 class Wait(Action):
@@ -173,16 +190,13 @@ class Wait(Action):
     def evaluate(self, current_time, counts, **kwargs):
         if self.init_time == -1:
             self.init_time = time.time()
-            # print("####### starting wait")
         if (current_time - self.init_time) > self.wait_time:
-            # print("####### finished wait")
             self.final_state = {
                 "state": "finished",
                 "name": self.__class__.__name__,
                 "time_waited": current_time - self.init_time,
             }
             return self.final_state
-
         return {"state": "waiting"}
 
     def __str__(self):
@@ -233,6 +247,7 @@ class ValueIntegrateHistogram(Action):
             # started
             print("####### starting integrate")
         hist = kwargs.get("hist")
+        bins = kwargs.get("bins")
 
         self.hist = self.hist + hist
         self.counts = self.counts + counts  # add counts
@@ -249,6 +264,7 @@ class ValueIntegrateHistogram(Action):
                 "hist": self.hist,
             }
             return self.final_state
+
         return {"state": "integrating"}
 
     def __str__(self):

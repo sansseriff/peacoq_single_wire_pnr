@@ -105,19 +105,20 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                 self.hist_idxs = np.zeros(len(self.data_channels), dtype=np.int64)
                 self.slope_diffs_idx = 0
                 self.coinc_idx = 0
-                print("stats 0r: ", self.stats[0] / np.sum(self.stats))
-                print("stats 1r: ", self.stats[1] / np.sum(self.stats))
-                print("stats 2+r: ", self.stats[2] / np.sum(self.stats))
-                print()
-                print("stats 0r: ", self.stats[0])
-                print("stats 1r: ", self.stats[1])
-                print("stats 2+r: ", self.stats[2])
-                print("##########################")
+                # print("stats 0r: ", self.stats[0] / np.sum(self.stats))
+                # print("stats 1r: ", self.stats[1] / np.sum(self.stats))
+                # print("stats 2+r: ", self.stats[2] / np.sum(self.stats))
+                # print()
+                # print("stats 0r: ", self.stats[0])
+                # print("stats 1r: ", self.stats[1])
+                # print("stats 2+r: ", self.stats[2])
+                # print("##########################")
 
+                stats = self.stats.copy()
                 self.stats = np.zeros(3, dtype=np.int64)
                 ###################
                 self._unlock()
-                return clocks, pclocks, hist_tags, slope_diffs
+                return clocks, pclocks, hist_tags, slope_diffs, stats
             else:
                 print("nope")
             self._unlock()
@@ -198,7 +199,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         debug = False
 
         zero_cycles = 0
-        empty_time = 180000
+        empty_time = 280000
         tag_1_buffer = 0
         tag_2_buffer = 0
         q = 0
@@ -239,7 +240,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             # old_time = tag["time"]
 
             if tag["channel"] == clock_channel:
-                clock0, period, clock_data, clock_idx, phi_old = clock_lock(
+                clock0, clock0_dec, period, clock_data, clock_idx, phi_old = clock_lock(
                     tag["time"],
                     clock_data,
                     lclock_data,
@@ -275,19 +276,15 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                             # I need to be careful about double counting
                             if i == 0:
-                                stats[0] += cycles - 2.0  # do I need the 2?
+                                stats[0] += cycles - 3.0  # do I need the 2?
                             # if q == 33 or q == 32 or q == 31:
                             #     print("stats[0] is now: ", stats[0])
                             # if cycles == 2.0:
                             #     stats[1] += 1
 
-                            hist_tag = ((tag["time"]) - clock0) - clock0_dec
-                            sub_period = period / mult
-                            # if q == 32:
-                            #     print("period: ", period)
-                            #     print("sub period: ", sub_period)
-                            minor_cycles = (hist_tag + phase) // sub_period
-                            hist_tag = hist_tag - (sub_period * minor_cycles)
+                            hist_tag = to_histogram(
+                                tag["time"], clock0, clock0_dec, period, mult, phase
+                            )
                             hist_tags_data[i, hist_idxs[i]] = hist_tag
                             hist_idxs[i] += 1
                             save_to_buffer(hist_buffer, i, hist_tag)
@@ -299,7 +296,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                             prev_other_channel = raw_buffer[j, 0]
                             prev_other_channel_hist = hist_buffer[j, 0]
                             # if the raw tags are very close in time
-                            if abs(tag["time"] - prev_other_channel) < 2000:
+                            if abs(tag["time"] - prev_other_channel) < 800:
 
                                 # if q == 32:
 
@@ -309,9 +306,12 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                                 # )
                                 # print(f"less than 2000 {j}")
                                 # then average the clock-referenced hist tags
-                                diff = (
-                                    hist_tag + prev_other_channel_hist
-                                ) / 2  # average in histogram space
+                                avg = (tag["time"] + prev_other_channel) / 2
+                                diff = to_histogram(
+                                    avg, clock0, clock0_dec, period, mult, phase
+                                )
+
+                                # average in histogram space
                                 # diff = (
                                 #     tag["time"] - prev_other_channel
                                 # )  # slope measurment
@@ -321,9 +321,9 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                                 #     print("slope diff: ", diff)
                                 #     print("raw_buffer", raw_buffer - np.min(raw_buffer))
                                 #     print("hist_buffer", hist_buffer)
-                                if diff < 200:
+                                if diff < 700:
                                     stats[2] += 1
-                                else:
+                                if (diff >= 700) and (diff < 1000):
                                     stats[1] += 1
 
                         save_to_buffer(raw_buffer, i, tag["time"])
@@ -460,6 +460,15 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
 
 @numba.jit(nopython=True, nogil=True, cache=True)
+def to_histogram(time, clock0, clock0_dec, period, mult, phase):
+    hist_tag = ((time) - clock0) - clock0_dec
+    sub_period = period / mult
+    minor_cycles = (hist_tag + phase) // sub_period
+    hist_tag = hist_tag - (sub_period * minor_cycles)
+    return hist_tag
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
 def save_to_buffer(buffer, channel_idx, tag):
     # saves a new tag to the top of the buffer for a particular channel
     # transalte everything in channel down
@@ -533,7 +542,7 @@ def clock_lock(
     phi_old = phi0
     clock_idx = clock_idx + 1
 
-    return clock0, period, clock_data, clock_idx, phi_old
+    return clock0, clock0_dec, period, clock_data, clock_idx, phi_old
 
 
 if __name__ == "__main__":
