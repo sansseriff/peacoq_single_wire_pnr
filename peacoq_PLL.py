@@ -199,7 +199,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         debug = False
 
         zero_cycles = 0
-        empty_time = 280000
+        empty_time = 195000
         tag_1_buffer = 0
         tag_2_buffer = 0
         q = 0
@@ -267,20 +267,12 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                         if delta_time > empty_time:
 
-                            if debug and (q == 33 or q == 32 or q == 31):
-                                print(delta_time)
-
                             cycles = round(
                                 delta_time / 100000, 1
                             )  # about 200, 300, 400, etc
 
-                            # I need to be careful about double counting
                             if i == 0:
-                                stats[0] += cycles - 3.0  # do I need the 2?
-                            # if q == 33 or q == 32 or q == 31:
-                            #     print("stats[0] is now: ", stats[0])
-                            # if cycles == 2.0:
-                            #     stats[1] += 1
+                                stats[0] += cycles - 2.0  # do I need the 2?
 
                             hist_tag = to_histogram(
                                 tag["time"], clock0, clock0_dec, period, mult, phase
@@ -315,16 +307,33 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                                 # diff = (
                                 #     tag["time"] - prev_other_channel
                                 # )  # slope measurment
-                                slope_diffs[slope_diffs_idx] = diff
-                                slope_diffs_idx += 1
+
                                 # if q == 32:
                                 #     print("slope diff: ", diff)
                                 #     print("raw_buffer", raw_buffer - np.min(raw_buffer))
                                 #     print("hist_buffer", hist_buffer)
-                                if diff < 700:
+
+                                cycles = round(
+                                    delta_time / 100000, 1
+                                )  # about 200, 300, 400, etc
+
+                                # if q == 32:
+                                #     print("diff: ", diff)
+                                #     print("delta time: ", delta_time)
+                                #     print(cycles)
+                                #     print()
+
+                                # if the count is not a valid single or double photon, dont count the vacuum contribution.
+                                if (diff < 700) and (diff >= 500):
                                     stats[2] += 1
+                                    stats[0] += cycles - 2.0  # do I need the 2?
+                                    slope_diffs[slope_diffs_idx] = diff
+                                    slope_diffs_idx += 1
                                 if (diff >= 700) and (diff < 1000):
                                     stats[1] += 1
+                                    stats[0] += cycles - 2.0  # do I need the 2?
+                                    slope_diffs[slope_diffs_idx] = diff
+                                    slope_diffs_idx += 1
 
                         save_to_buffer(raw_buffer, i, tag["time"])
                         """
