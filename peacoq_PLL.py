@@ -44,7 +44,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         self.max_bins = n_bins
 
         self.clock_idx = 0
-        self.hist_idxs = np.array([0, 0])
+        self.hist_idxs = 0
         self.slope_diffs_idx = 0
         self.coinc_idx = 0
         self.old_clock_start = 0
@@ -93,7 +93,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                 pclocks = self.lclock_data[: self.clock_idx].copy()
                 hist_tags = []
                 for i, chan in enumerate(self.data_channels):
-                    hist_tags.append(self.hist_tags_data[i, : self.hist_idxs[i]].copy())
+                    hist_tags.append(self.hist_tags_data[i, : self.hist_idxs].copy())
 
                 slope_diffs = self.slope_diffs[: self.slope_diffs_idx].copy()
 
@@ -102,7 +102,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
 
                 # expiremental ####
                 self.clock_idx = 0
-                self.hist_idxs = np.zeros(len(self.data_channels), dtype=np.int64)
+                self.hist_idxs = 0
                 self.slope_diffs_idx = 0
                 self.coinc_idx = 0
                 # print("stats 0r: ", self.stats[0] / np.sum(self.stats))
@@ -199,13 +199,17 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
         debug = False
 
         zero_cycles = 0
-        empty_time = 195000
+        empty_time = 199000
+        vacuum_subtract = 2.0
         tag_1_buffer = 0
         tag_2_buffer = 0
         q = 0
+        n = 0
         zero_kets = 0
         plus_1_kets = 0
         old_time = 0
+        hist_tag = 0
+        extra = 0
 
         if init:
             msg = f"Init PLL with clock channel {clock_channel}"
@@ -229,7 +233,7 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
             clock0_dec = -0.1
             print("[READY] Finished FastProcess Initialization")
             clock_idx = 0
-            hist_idxs = np.zeros(len(data_channels), dtype=np.int64)
+            hist_idxs = 0
             coinc_idx = 0
 
         for tag in tags:
@@ -259,133 +263,49 @@ class CustomPLLHistogram(TimeTagger.CustomMeasurement):
                 if clock0 == -1:
                     continue
 
-                for i, data_chan in enumerate(data_channels):
-                    if tag["channel"] == data_chan:
-                        prev_raw_tag = raw_buffer[i, 0]
+                if tag["channel"] == 5:
+                    delta_time = tag["time"] - raw_buffer[0, 0]
+                    if delta_time > empty_time:
+                        n += 1
+                        # print(tag["time"])
+                        # print(hist_tag)
 
-                        delta_time = tag["time"] - prev_raw_tag
+                        # print(type(tag["time"]))
+                        # print(type(hist_tag))
 
-                        if delta_time > empty_time:
+                        hist_tag = (tag["time"] - clock0) - clock0_dec
+                        sub_period = period / mult
+                        minor_cycles = (hist_tag + phase) // sub_period
+                        hist_tag = hist_tag - (sub_period * minor_cycles)
+                        hist_tags_data[0, 0] = hist_tag
+                        hist_idxs += 1
+                        cycles = round(delta_time / 100000, 1)
 
-                            cycles = round(
-                                delta_time / 100000, 1
-                            )  # about 200, 300, 400, etc
+                        if hist_tag < 90:
+                            stats[0] += cycles - vacuum_subtract
+                            extra = extra + 1
 
-                            if i == 0:
-                                stats[0] += cycles - 2.0  # do I need the 2?
+                        if (hist_tag < 195) and (hist_tag >= 90):
+                            stats[2] += 1
+                            stats[0] += cycles - vacuum_subtract  # do I need the 2?
+                            # slope_diffs[slope_diffs_idx] = hist_tag
 
-                            hist_tag = to_histogram(
-                                tag["time"], clock0, clock0_dec, period, mult, phase
-                            )
-                            hist_tags_data[i, hist_idxs[i]] = hist_tag
-                            hist_idxs[i] += 1
-                            save_to_buffer(hist_buffer, i, hist_tag)
+                        if (hist_tag >= 195) and (hist_tag < 400):
+                            stats[1] += 1
+                            stats[0] += cycles - vacuum_subtract  # do I need the 2?
+                            # slope_diffs[slope_diffs_idx] = hist_tag
+                            # slope_diffs_idx += 1
 
-                            if i == 0:
-                                j = 1
-                            else:
-                                j = 0
-                            prev_other_channel = raw_buffer[j, 0]
-                            prev_other_channel_hist = hist_buffer[j, 0]
-                            # if the raw tags are very close in time
-                            if abs(tag["time"] - prev_other_channel) < 800:
+                            # slope_diffs_idx += 1
+                        if hist_tag >= 400:
+                            stats[0] += cycles - vacuum_subtract
+                        slope_diffs[slope_diffs_idx] = hist_tag
+                        slope_diffs_idx += 1
 
-                                # if q == 32:
+                    raw_buffer[0, 0] = tag["time"]
 
-                                # print(
-                                #     "tag minus prev other channel: ",
-                                #     tag["time"] - prev_other_channel,
-                                # )
-                                # print(f"less than 2000 {j}")
-                                # then average the clock-referenced hist tags
-                                avg = (tag["time"] + prev_other_channel) / 2
-                                diff = to_histogram(
-                                    avg, clock0, clock0_dec, period, mult, phase
-                                )
-
-                                # average in histogram space
-                                # diff = (
-                                #     tag["time"] - prev_other_channel
-                                # )  # slope measurment
-
-                                # if q == 32:
-                                #     print("slope diff: ", diff)
-                                #     print("raw_buffer", raw_buffer - np.min(raw_buffer))
-                                #     print("hist_buffer", hist_buffer)
-
-                                cycles = round(
-                                    delta_time / 100000, 1
-                                )  # about 200, 300, 400, etc
-
-                                # if q == 32:
-                                #     print("diff: ", diff)
-                                #     print("delta time: ", delta_time)
-                                #     print(cycles)
-                                #     print()
-
-                                # if the count is not a valid single or double photon, dont count the vacuum contribution.
-                                if (diff < 700) and (diff >= 500):
-                                    stats[2] += 1
-                                    stats[0] += cycles - 2.0  # do I need the 2?
-                                    slope_diffs[slope_diffs_idx] = diff
-                                    slope_diffs_idx += 1
-                                if (diff >= 700) and (diff < 1000):
-                                    stats[1] += 1
-                                    stats[0] += cycles - 2.0  # do I need the 2?
-                                    slope_diffs[slope_diffs_idx] = diff
-                                    slope_diffs_idx += 1
-
-                        save_to_buffer(raw_buffer, i, tag["time"])
-                        """
-                        need some way of loading differnt features here, 
-                        and exporting their resutls in an orderly way
-                        """
-
-                    # else:
-                    #     continue
-
-                # if (tag["channel"] == data_channel_1) or (tag["channel"] == data_channel_2):
-                #     if clock0 != -1:
-                #         hist_tag = ((tag["time"]) - clock0) - clock0_dec
-                #         # hist_tag = tag["time"] - raw_clock # NO pll
-                #         # hist_tag = (tag["time"]+test_factor) - current_clock # no PLL
-                #         sub_period = period / mult
-                #         minor_cycles = (hist_tag + phase) // sub_period
-                #         hist_tag = hist_tag - (sub_period * minor_cycles)
-
-                #     # if no previous tag for empty_time ealier (no jitterate)
-                #     if tag["time"] - old_tag_1 > empty_time:
-                #         hist_1_tags_data[hist_1_idx] = hist_tag
-                #         hist_1_idx += 1
-                #         tag_1_buffer = tag["time"]
-                #     old_tag_1 = tag["time"]
-
-                #     if abs(tag["time"] - tag_2_buffer) < 2000:
-                #         diff = tag["time"] - tag_2_buffer
-                #         slope_diffs[slope_diffs_idx] = diff
-                #         slope_diffs_idx += 1
-
-                # if tag["channel"] == data_channel_2:
-                #     if tag["time"] - old_tag_2 > empty_time:
-
-                #         hist_2_tags_data[hist_2_idx] = hist_tag
-                #         hist_2_idx += 1
-                #         tag_2_buffer = tag["time"]
-                #     old_tag_2 = tag["time"]
-
-                #     if abs(tag["time"] - tag_1_buffer) < 2000:
-                #         diff = tag["time"] - tag_1_buffer
-                #         slope_diffs[slope_diffs_idx] = diff
-                #         slope_diffs_idx += 1
-
-                # hist_2_tags_data[hist_2_idx] = hist_tag
-                # hist_2_idx += 1
-        # print("zero_kets: ", zero_kets)
-        # print("one_plus_kets: ", plus_1_kets)
-        # print("zero_ratio: ", zero_kets / (zero_kets + plus_1_kets))
-        # print("one_plus_ratio: ", plus_1_kets / (zero_kets + plus_1_kets))
-        # print("#####################")
-
+        # print(" extra: ", extra)
+        # print("n: ", n)
         if init:
             init = 0
 
