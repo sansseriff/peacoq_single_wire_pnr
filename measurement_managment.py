@@ -134,21 +134,47 @@ class GetVoltageCurrent(Action):
 
 
 class ChangeAttenuation(Action):
-    def __init__(self, attenuation):
+    def __init__(self, attenuator, photon_rate):
         super().__init__()
-        self.attenuation = attenuation
-        self.attenuator = SocketClient("10.7.0.101", 5050)
+        self.photon_rate = photon_rate
+        self.attenuator = attenuator
 
     def evaluate(self, current_time, counts, **kwargs):
         # using 3 attenuators in series. Each one has precision up to .05 dB
-        dBval = str(round(3 * 0.05 * round(self.attenuation / (3 * 0.05)), 2))
-        command = "-Q " + dBval
+        # dBval = str(round(3 * 0.05 * round(self.attenuation / (3 * 0.05)), 2))
+        photon_rate = str(round(self.photon_rate))
+        # command = "-Q " + dBval
 
-        self.attenuator.send(command)
+        command = "-P " + photon_rate
+
+        self.attenuator.send_only(command)
         self.final_state = {
             "state": "finished",
             "name": self.__class__.__name__,
-            "attenuation": dBval,
+            "photon_rate": photon_rate,
+        }
+        print("command sent")
+        return self.final_state
+
+
+class GetAttenuatorData(Action):
+    def __init__(self, attenuator):
+        super().__init__()
+
+        self.attenuator = attenuator
+
+    def evaluate(self, current_time, counts, **kwargs):
+        # using 3 attenuators in series. Each one has precision up to .05 dB
+        # dBval = str(round(3 * 0.05 * round(self.attenuation / (3 * 0.05)), 2))
+        # photon_rate = str(round(self.photon_rate))
+        # command = "-Q " + dBval
+
+        resp = self.attenuator.recv()
+        print(resp)
+        self.final_state = {
+            "state": "finished",
+            "name": self.__class__.__name__,
+            "photon_rate": resp,
         }
         return self.final_state
 
@@ -157,14 +183,29 @@ class AttenuationAndIntegrate(Action):
     def __init__(self, params):
         super().__init__()
 
-        self.add_action(ChangeAttenuation(params["attenuation"]))
+        self.add_action(ChangeAttenuation(params["photon_rate"]))
         self.add_action(Wait(params["wait_time"]))
         self.add_action(ValueIntegrateHistogram(params["minimum_total_counts"]))
 
     def evaluate(self, current_time, counts, **kwargs):
         res = super().evaluate(current_time, counts, **kwargs)
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
+
+        return res
+
+
+class CalibratedAttenuationAndIntegrate(Action):
+    def __init__(self, params):
+        super().__init__()
+
+        self.attenuator = SocketClient("10.7.0.101", 5050)
+
+        self.add_action(ChangeAttenuation(self.attenuator, params["photon_rate"]))
+        self.add_action(Wait(params["wait_time"]))
+        self.add_action(GetAttenuatorData(self.attenuator))
+        self.add_action(ValueIntegrateHistogram(params["minimum_total_counts"]))
+
+    def evaluate(self, current_time, counts, **kwargs):
+        res = super().evaluate(current_time, counts, **kwargs)
 
         return res
 
@@ -172,14 +213,15 @@ class AttenuationAndIntegrate(Action):
 class AttenuationAndIntegrateScan(Action):
     def __init__(self, params):
         super().__init__()
-        attenuation_list = np.arange(
-            params["smallest_attenuation"],
-            params["largest_attenuation"],
-            params["attenuation_step_size"],
-        )
-        for attenuation in attenuation_list:
-            params["attenuation"] = attenuation
-            self.add_action(AttenuationAndIntegrate(params))
+        # attenuation_list = np.arange(
+        #     params["smallest_attenuation"],
+        #     params["largest_attenuation"],
+        #     params["attenuation_step_size"],
+        # )
+        photon_rate_list = [1e6 * 10 ** (i * 2 / 10) for i in range(20)]
+        for photon_rate in photon_rate_list:
+            params["photon_rate"] = photon_rate
+            self.add_action(CalibratedAttenuationAndIntegrate(params))
 
 
 class Wait(Action):

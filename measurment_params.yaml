@@ -5,5 +5,5 @@ attenuation_scan:
   smallest_attenuation: 50
   largest_attenuation: 90
   attenuation_step_size: 2
-  wait_time: 2 # in bewteen integrations. Time for attenuators to respond
+  wait_time: 40 # in bewteen integrations. Time for attenuators to respond
   minimum_total_counts: 10000
